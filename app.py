@@ -10,12 +10,6 @@ tenant_id = st.secrets["AZURE_TENANT_ID"]
 client_id = st.secrets["AZURE_CLIENT_ID"]
 client_secret = st.secrets["AZURE_CLIENT_SECRET"]
 
-credential = ClientSecretCredential(
-    tenant_id=tenant_id,
-    client_id=client_id,
-    client_secret=client_secret
-)
-
 AUTHORITY = f"https://login.microsoftonline.com/{tenant_id }"
 
 # -------------------
