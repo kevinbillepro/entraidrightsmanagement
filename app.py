@@ -53,19 +53,22 @@ if not token:
 users = get_users(token)
 df_users = pd.DataFrame(users)
 
+# Normaliser les noms de colonnes en minuscules
+df_users.columns = [col.lower() for col in df_users.columns]
+
 # Filtrage par nom ou email
 search = st.text_input("Filtrer par nom ou email")
 if search:
     df_users = df_users[
-        df_users["displayName"].str.contains(search, case=False) |
-        df_users["mail"].str.contains(search, case=False)
+        df_users["displayname"].str.contains(search, case=False, na=False) |
+        df_users["mail"].str.contains(search, case=False, na=False)
     ]
 
 st.dataframe(df_users)
 
 # Voir les rôles d'un utilisateur sélectionné
 selected_user = st.selectbox(
-    "Sélectionnez un utilisateur pour voir ses rôles", df_users["userPrincipalName"]
+    "Sélectionnez un utilisateur pour voir ses rôles", df_users["userprincipalname"]
 )
 if selected_user:
     roles = get_user_roles(token, selected_user)
