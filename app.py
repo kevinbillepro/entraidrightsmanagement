@@ -23,6 +23,7 @@ def get_access_token():
     token_response = app.acquire_token_for_client(scopes=SCOPE)
     return token_response.get("access_token", None)
 
+@st.cache_data(ttl=600)
 def get_users(token):
     url = "https://graph.microsoft.com/v1.0/users?$select=displayName,mail,userPrincipalName"
     headers = {"Authorization": f"Bearer {token}"}
@@ -34,6 +35,7 @@ def get_users(token):
         url = data.get("@odata.nextLink", None)
     return users
 
+@st.cache_data(ttl=600)
 def get_user_roles(token, user_id):
     url = f"https://graph.microsoft.com/v1.0/users/{user_id}/appRoleAssignments"
     headers = {"Authorization": f"Bearer {token}"}
@@ -50,38 +52,39 @@ if not token:
     st.error("Impossible d'obtenir un token Azure AD")
     st.stop()
 
+# Récupération des utilisateurs (mise en cache pour accélérer)
 users = get_users(token)
 df_users = pd.DataFrame(users)
-
-# Normaliser les colonnes en minuscules
 df_users.columns = [col.lower() for col in df_users.columns]
 
-# S'assurer que les colonnes essentielles existent
 for col in ["displayname", "mail", "userprincipalname"]:
     if col not in df_users.columns:
         df_users[col] = ""
 
-# Filtrage par nom ou email
+# Input et bouton de recherche
 search = st.text_input("Filtrer par nom ou email")
-if search:
-    df_users = df_users[
-        df_users["displayname"].str.contains(search, case=False, na=False) |
-        df_users["mail"].str.contains(search, case=False, na=False)
-    ]
+if st.button("Recherche"):
+    # Filtrage local uniquement, pas de nouvelle requête Graph
+    if search:
+        df_filtered = df_users[
+            df_users["displayname"].str.contains(search, case=False, na=False) |
+            df_users["mail"].str.contains(search, case=False, na=False)
+        ]
+    else:
+        df_filtered = df_users.copy()
 
-st.dataframe(df_users)
+    st.dataframe(df_filtered)
 
-# Voir les rôles d'un utilisateur sélectionné
-if not df_users.empty:
-    selected_user = st.selectbox(
-        "Sélectionnez un utilisateur pour voir ses rôles", df_users["userprincipalname"]
-    )
-    if selected_user:
-        roles = get_user_roles(token, selected_user)
-        if roles:
-            roles_df = pd.DataFrame(roles)
-            st.dataframe(roles_df)
-        else:
-            st.info("Cet utilisateur n'a aucun rôle attribué")
-else:
-    st.info("Aucun utilisateur trouvé avec ce filtre")
+    if not df_filtered.empty:
+        selected_user = st.selectbox(
+            "Sélectionnez un utilisateur pour voir ses rôles", df_filtered["userprincipalname"]
+        )
+        if selected_user:
+            roles = get_user_roles(token, selected_user)
+            if roles:
+                roles_df = pd.DataFrame(roles)
+                st.dataframe(roles_df)
+            else:
+                st.info("Cet utilisateur n'a aucun rôle attribué")
+    else:
+        st.info("Aucun utilisateur trouvé avec ce filtre")
