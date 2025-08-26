@@ -52,11 +52,9 @@ if not token:
     st.error("Impossible d'obtenir un token Azure AD")
     st.stop()
 
-# Input et bouton de recherche
 search = st.text_input("Filtrer par nom ou email")
 search_clicked = st.button("Recherche")
 
-# On ne charge les utilisateurs qu’après la recherche
 if search_clicked:
     with st.spinner("Chargement des utilisateurs..."):
         users = get_users(token)
@@ -79,20 +77,37 @@ if search_clicked:
             st.info("Aucun utilisateur trouvé avec ce filtre")
         else:
             st.subheader("Résultats de la recherche")
-            st.dataframe(df_filtered[["displayname", "mail", "userprincipalname"]])
-
-            # Sélection de l'utilisateur pour afficher ses rôles
-            selected_user = st.selectbox(
-                "Sélectionnez un utilisateur pour voir ses rôles",
-                df_filtered["userprincipalname"]
+            
+            # Data editor pour sélectionner un utilisateur
+            selected_df = st.data_editor(
+                df_filtered[["displayname", "mail", "userprincipalname"]],
+                num_rows="dynamic",
+                use_container_width=True,
+                key="user_table",
+                disabled=True,  # on empêche la modification, juste sélection
+                column_config={
+                    "displayname": st.column_config.TextColumn("Nom"),
+                    "mail": st.column_config.TextColumn("Email"),
+                    "userprincipalname": st.column_config.TextColumn("UPN"),
+                },
+                hide_index=True,
+                on_change=None,
+                help="Cliquez sur une ligne pour sélectionner l'utilisateur"
             )
-            if selected_user:
-                roles = get_user_roles(token, selected_user)
-                if roles:
-                    roles_df = pd.DataFrame(roles)
-                    st.subheader(f"Rôles de {selected_user}")
-                    st.dataframe(roles_df)
-                else:
-                    st.info(f"{selected_user} n'a aucun rôle attribué")
+
+            # Sélection de la première ligne (Streamlit ne gère pas encore la multi-sélection facilement)
+            if not df_filtered.empty:
+                selected_user_upn = st.selectbox(
+                    "Sélectionnez un utilisateur pour voir ses rôles",
+                    df_filtered["userprincipalname"]
+                )
+                if selected_user_upn:
+                    roles = get_user_roles(token, selected_user_upn)
+                    if roles:
+                        roles_df = pd.DataFrame(roles)
+                        st.subheader(f"Rôles de {selected_user_upn}")
+                        st.dataframe(roles_df)
+                    else:
+                        st.info(f"{selected_user_upn} n'a aucun rôle attribué")
 else:
     st.info("Entrez un nom ou email et cliquez sur 'Recherche' pour charger les utilisateurs")
