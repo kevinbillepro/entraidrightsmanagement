@@ -53,8 +53,13 @@ if not token:
 users = get_users(token)
 df_users = pd.DataFrame(users)
 
-# Normaliser les noms de colonnes en minuscules
+# Normaliser les colonnes en minuscules
 df_users.columns = [col.lower() for col in df_users.columns]
+
+# S'assurer que les colonnes essentielles existent
+for col in ["displayname", "mail", "userprincipalname"]:
+    if col not in df_users.columns:
+        df_users[col] = ""
 
 # Filtrage par nom ou email
 search = st.text_input("Filtrer par nom ou email")
@@ -67,13 +72,16 @@ if search:
 st.dataframe(df_users)
 
 # Voir les rôles d'un utilisateur sélectionné
-selected_user = st.selectbox(
-    "Sélectionnez un utilisateur pour voir ses rôles", df_users["userprincipalname"]
-)
-if selected_user:
-    roles = get_user_roles(token, selected_user)
-    if roles:
-        roles_df = pd.DataFrame(roles)
-        st.dataframe(roles_df)
-    else:
-        st.info("Cet utilisateur n'a aucun rôle attribué")
+if not df_users.empty:
+    selected_user = st.selectbox(
+        "Sélectionnez un utilisateur pour voir ses rôles", df_users["userprincipalname"]
+    )
+    if selected_user:
+        roles = get_user_roles(token, selected_user)
+        if roles:
+            roles_df = pd.DataFrame(roles)
+            st.dataframe(roles_df)
+        else:
+            st.info("Cet utilisateur n'a aucun rôle attribué")
+else:
+    st.info("Aucun utilisateur trouvé avec ce filtre")
