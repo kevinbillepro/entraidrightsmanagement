@@ -6,19 +6,24 @@ from msal import ConfidentialClientApplication
 # -------------------
 # Config Azure AD
 # -------------------
-TENANT_ID = "votre-tenant-id"
-CLIENT_ID = "votre-client-id"
-CLIENT_SECRET = "votre-client-secret"
-SCOPE = ["https://graph.microsoft.com/.default"]
+tenant_id = st.secrets["AZURE_TENANT_ID"]
+client_id = st.secrets["AZURE_CLIENT_ID"]
+client_secret = st.secrets["AZURE_CLIENT_SECRET"]
 
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+credential = ClientSecretCredential(
+    tenant_id=tenant_id,
+    client_id=client_id,
+    client_secret=client_secret
+)
+
+AUTHORITY = f"https://login.microsoftonline.com/{tenant_id }"
 
 # -------------------
 # Connexion à Microsoft Graph
 # -------------------
 def get_access_token():
     app = ConfidentialClientApplication(
-        CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
+        client_id, authority=AUTHORITY, client_credential=client_secret 
     )
     token_response = app.acquire_token_for_client(scopes=SCOPE)
     return token_response.get("access_token", None)
