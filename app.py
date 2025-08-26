@@ -52,8 +52,13 @@ if not token:
     st.error("Impossible d'obtenir un token Azure AD")
     st.stop()
 
-search = st.text_input("Filtrer par nom ou email")
+# Input et bouton de recherche
+search = st.text_input("Filtrer par nom, email ou UPN")
 search_clicked = st.button("Recherche")
+
+# Initialiser la session_state pour la sélection
+if "selected_user" not in st.session_state:
+    st.session_state.selected_user = None
 
 if search_clicked:
     with st.spinner("Chargement des utilisateurs..."):
@@ -64,11 +69,12 @@ if search_clicked:
             if col not in df_users.columns:
                 df_users[col] = ""
 
-        # Filtrage
+        # Filtrage sur displayName, mail et userPrincipalName
         if search:
             df_filtered = df_users[
                 df_users["displayname"].str.contains(search, case=False, na=False) |
-                df_users["mail"].str.contains(search, case=False, na=False)
+                df_users["mail"].str.contains(search, case=False, na=False) |
+                df_users["userprincipalname"].str.contains(search, case=False, na=False)
             ]
         else:
             df_filtered = df_users.copy()
@@ -77,37 +83,35 @@ if search_clicked:
             st.info("Aucun utilisateur trouvé avec ce filtre")
         else:
             st.subheader("Résultats de la recherche")
-            
-            # Data editor pour sélectionner un utilisateur
-            selected_df = st.data_editor(
+
+            # Data editor interactif
+            selected_rows = st.data_editor(
                 df_filtered[["displayname", "mail", "userprincipalname"]],
-                num_rows="dynamic",
-                use_container_width=True,
-                key="user_table",
-                disabled=True,  # on empêche la modification, juste sélection
                 column_config={
                     "displayname": st.column_config.TextColumn("Nom"),
                     "mail": st.column_config.TextColumn("Email"),
                     "userprincipalname": st.column_config.TextColumn("UPN"),
                 },
                 hide_index=True,
+                key="user_table",
+                disabled=True,
                 on_change=None,
-                help="Cliquez sur une ligne pour sélectionner l'utilisateur"
+                use_container_width=True,
+                num_rows="dynamic",
+                select_rows=True,  # active la sélection
             )
 
-            # Sélection de la première ligne (Streamlit ne gère pas encore la multi-sélection facilement)
-            if not df_filtered.empty:
-                selected_user_upn = st.selectbox(
-                    "Sélectionnez un utilisateur pour voir ses rôles",
-                    df_filtered["userprincipalname"]
-                )
-                if selected_user_upn:
-                    roles = get_user_roles(token, selected_user_upn)
-                    if roles:
-                        roles_df = pd.DataFrame(roles)
-                        st.subheader(f"Rôles de {selected_user_upn}")
-                        st.dataframe(roles_df)
-                    else:
-                        st.info(f"{selected_user_upn} n'a aucun rôle attribué")
-else:
-    st.info("Entrez un nom ou email et cliquez sur 'Recherche' pour charger les utilisateurs")
+            # Récupérer l'utilisateur sélectionné (la première ligne sélectionnée)
+            if selected_rows.selected_rows:
+                idx = selected_rows.selected_rows[0]
+                st.session_state.selected_user = df_filtered.iloc[idx]["userprincipalname"]
+
+# Affichage des rôles de l'utilisateur sélectionné
+if st.session_state.selected_user:
+    roles = get_user_roles(token, st.session_state.selected_user)
+    if roles:
+        roles_df = pd.DataFrame(roles)
+        st.subheader(f"Rôles de {st.session_state.selected_user}")
+        st.dataframe(roles_df)
+    else:
+        st.info(f"{st.session_state.selected_user} n'a aucun rôle attribué")
