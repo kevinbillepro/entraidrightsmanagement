@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 from msal import ConfidentialClientApplication
+import plotly.express as px
 
 # -------------------
 # Config Azure AD
@@ -52,7 +53,7 @@ if not token:
     st.error("Impossible d'obtenir un token Azure AD")
     st.stop()
 
-# Récupération des utilisateurs (mise en cache)
+# Récupération des utilisateurs
 users = get_users(token)
 df_users = pd.DataFrame(users)
 df_users.columns = [col.lower() for col in df_users.columns]
@@ -64,7 +65,6 @@ for col in ["displayname", "mail", "userprincipalname"]:
 search = st.text_input("Filtrer par nom ou email")
 search_clicked = st.button("Recherche")
 
-# On ne filtre que si le bouton est cliqué
 if search_clicked:
     if search:
         df_filtered = df_users[
@@ -73,23 +73,37 @@ if search_clicked:
         ]
     else:
         df_filtered = df_users.copy()
-
-    st.dataframe(df_filtered)
 else:
     df_filtered = df_users.copy()
-    st.dataframe(df_filtered)
 
-# Selectbox pour afficher les rôles
+st.dataframe(df_filtered)
+
+# -------------------
+# Heatmap des rôles
+# -------------------
 if not df_filtered.empty:
-    selected_user = st.selectbox(
-        "Sélectionnez un utilisateur pour voir ses rôles", df_filtered["userprincipalname"]
-    )
-    if selected_user:
-        roles = get_user_roles(token, selected_user)
-        if roles:
-            roles_df = pd.DataFrame(roles)
-            st.dataframe(roles_df)
-        else:
-            st.info("Cet utilisateur n'a aucun rôle attribué")
+    # Récupérer tous les rôles des utilisateurs filtrés
+    roles_data = []
+    for user_id, display_name in zip(df_filtered["userprincipalname"], df_filtered["displayname"]):
+        roles = get_user_roles(token, user_id)
+        for role in roles:
+            role_name = role.get("appRoleId", role.get("id", "unknown"))
+            roles_data.append({"user": display_name, "role": role_name})
+
+    if roles_data:
+        df_roles = pd.DataFrame(roles_data)
+        # Créer un pivot pour la heatmap
+        df_pivot = df_roles.assign(value=1).pivot_table(
+            index="user", columns="role", values="value", fill_value=0
+        )
+        # Afficher avec plotly
+        fig = px.imshow(
+            df_pivot,
+            labels=dict(x="Rôle", y="Utilisateur", color="Présence"),
+            color_continuous_scale="Blues"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Aucun rôle trouvé pour les utilisateurs filtrés")
 else:
     st.info("Aucun utilisateur trouvé avec ce filtre")
