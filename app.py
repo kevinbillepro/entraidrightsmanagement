@@ -56,10 +56,11 @@ if not token:
 search = st.text_input("Filtrer par nom, email ou UPN")
 search_clicked = st.button("Recherche")
 
-# Initialiser la session_state pour la sélection
+# Initialiser la session_state pour l'utilisateur sélectionné
 if "selected_user" not in st.session_state:
     st.session_state.selected_user = None
 
+# --- Recherche ---
 if search_clicked:
     with st.spinner("Chargement des utilisateurs..."):
         users = get_users(token)
@@ -84,29 +85,16 @@ if search_clicked:
         else:
             st.subheader("Résultats de la recherche")
 
-            # Data editor interactif
-            selected_rows = st.data_editor(
-                df_filtered[["displayname", "mail", "userprincipalname"]],
-                column_config={
-                    "displayname": st.column_config.TextColumn("Nom"),
-                    "mail": st.column_config.TextColumn("Email"),
-                    "userprincipalname": st.column_config.TextColumn("UPN"),
-                },
-                hide_index=True,
-                key="user_table",
-                disabled=True,
-                on_change=None,
-                use_container_width=True,
-                num_rows="dynamic",
-                select_rows=True,  # active la sélection
-            )
+            # Tableau avec bouton "Voir les rôles" pour chaque utilisateur
+            for idx, row in df_filtered.iterrows():
+                cols = st.columns([4, 4, 3, 2])
+                cols[0].write(row["displayname"])
+                cols[1].write(row["mail"])
+                cols[2].write(row["userprincipalname"])
+                if cols[3].button("Voir les rôles", key=row["userprincipalname"]):
+                    st.session_state.selected_user = row["userprincipalname"]
 
-            # Récupérer l'utilisateur sélectionné (la première ligne sélectionnée)
-            if selected_rows.selected_rows:
-                idx = selected_rows.selected_rows[0]
-                st.session_state.selected_user = df_filtered.iloc[idx]["userprincipalname"]
-
-# Affichage des rôles de l'utilisateur sélectionné
+# --- Affichage des rôles ---
 if st.session_state.selected_user:
     roles = get_user_roles(token, st.session_state.selected_user)
     if roles:
