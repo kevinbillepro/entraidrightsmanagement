@@ -53,57 +53,56 @@ if not token:
     st.error("Impossible d'obtenir un token Azure AD")
     st.stop()
 
-# Récupération des utilisateurs
-users = get_users(token)
-df_users = pd.DataFrame(users)
-df_users.columns = [col.lower() for col in df_users.columns]
-for col in ["displayname", "mail", "userprincipalname"]:
-    if col not in df_users.columns:
-        df_users[col] = ""
-
 # Input et bouton de recherche
 search = st.text_input("Filtrer par nom ou email")
 search_clicked = st.button("Recherche")
 
+# On ne charge et ne filtre les utilisateurs qu'après la première recherche
 if search_clicked:
-    if search:
-        df_filtered = df_users[
-            df_users["displayname"].str.contains(search, case=False, na=False) |
-            df_users["mail"].str.contains(search, case=False, na=False)
-        ]
-    else:
-        df_filtered = df_users.copy()
+    with st.spinner("Chargement des utilisateurs..."):
+        users = get_users(token)
+        df_users = pd.DataFrame(users)
+        df_users.columns = [col.lower() for col in df_users.columns]
+        for col in ["displayname", "mail", "userprincipalname"]:
+            if col not in df_users.columns:
+                df_users[col] = ""
+
+        # Filtrage
+        if search:
+            df_filtered = df_users[
+                df_users["displayname"].str.contains(search, case=False, na=False) |
+                df_users["mail"].str.contains(search, case=False, na=False)
+            ]
+        else:
+            df_filtered = df_users.copy()
+
+        st.dataframe(df_filtered)
+
+        # -------------------
+        # Heatmap des rôles
+        # -------------------
+        if not df_filtered.empty:
+            roles_data = []
+            for user_id, display_name in zip(df_filtered["userprincipalname"], df_filtered["displayname"]):
+                roles = get_user_roles(token, user_id)
+                for role in roles:
+                    role_name = role.get("appRoleId", role.get("id", "unknown"))
+                    roles_data.append({"user": display_name, "role": role_name})
+
+            if roles_data:
+                df_roles = pd.DataFrame(roles_data)
+                df_pivot = df_roles.assign(value=1).pivot_table(
+                    index="user", columns="role", values="value", fill_value=0
+                )
+                fig = px.imshow(
+                    df_pivot,
+                    labels=dict(x="Rôle", y="Utilisateur", color="Présence"),
+                    color_continuous_scale="Blues"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucun rôle trouvé pour les utilisateurs filtrés")
+        else:
+            st.info("Aucun utilisateur trouvé avec ce filtre")
 else:
-    df_filtered = df_users.copy()
-
-st.dataframe(df_filtered)
-
-# -------------------
-# Heatmap des rôles
-# -------------------
-if not df_filtered.empty:
-    # Récupérer tous les rôles des utilisateurs filtrés
-    roles_data = []
-    for user_id, display_name in zip(df_filtered["userprincipalname"], df_filtered["displayname"]):
-        roles = get_user_roles(token, user_id)
-        for role in roles:
-            role_name = role.get("appRoleId", role.get("id", "unknown"))
-            roles_data.append({"user": display_name, "role": role_name})
-
-    if roles_data:
-        df_roles = pd.DataFrame(roles_data)
-        # Créer un pivot pour la heatmap
-        df_pivot = df_roles.assign(value=1).pivot_table(
-            index="user", columns="role", values="value", fill_value=0
-        )
-        # Afficher avec plotly
-        fig = px.imshow(
-            df_pivot,
-            labels=dict(x="Rôle", y="Utilisateur", color="Présence"),
-            color_continuous_scale="Blues"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Aucun rôle trouvé pour les utilisateurs filtrés")
-else:
-    st.info("Aucun utilisateur trouvé avec ce filtre")
+    st.info("Entrez un nom ou email et cliquez sur 'Recherche' pour charger les utilisateurs")
