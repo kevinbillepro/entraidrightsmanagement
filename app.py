@@ -10,14 +10,15 @@ tenant_id = st.secrets["AZURE_TENANT_ID"]
 client_id = st.secrets["AZURE_CLIENT_ID"]
 client_secret = st.secrets["AZURE_CLIENT_SECRET"]
 
-AUTHORITY = f"https://login.microsoftonline.com/{tenant_id }"
+SCOPE = ["https://graph.microsoft.com/.default"]
+AUTHORITY = f"https://login.microsoftonline.com/{tenant_id}"
 
 # -------------------
 # Connexion à Microsoft Graph
 # -------------------
 def get_access_token():
     app = ConfidentialClientApplication(
-        client_id, authority=AUTHORITY, client_credential=client_secret 
+        client_id, authority=AUTHORITY, client_credential=client_secret
     )
     token_response = app.acquire_token_for_client(scopes=SCOPE)
     return token_response.get("access_token", None)
@@ -63,7 +64,9 @@ if search:
 st.dataframe(df_users)
 
 # Voir les rôles d'un utilisateur sélectionné
-selected_user = st.selectbox("Sélectionnez un utilisateur pour voir ses rôles", df_users["userPrincipalName"])
+selected_user = st.selectbox(
+    "Sélectionnez un utilisateur pour voir ses rôles", df_users["userPrincipalName"]
+)
 if selected_user:
     roles = get_user_roles(token, selected_user)
     if roles:
