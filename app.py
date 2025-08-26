@@ -61,27 +61,30 @@ for col in ["displayname", "mail", "userprincipalname"]:
     if col not in df_users.columns:
         df_users[col] = ""
 
-# Filtrage par nom ou email
+# Input et bouton de recherche
 search = st.text_input("Filtrer par nom ou email")
-if search:
-    df_users = df_users[
-        df_users["displayname"].str.contains(search, case=False, na=False) |
-        df_users["mail"].str.contains(search, case=False, na=False)
-    ]
+if st.button("Recherche"):
+    if search:
+        df_filtered = df_users[
+            df_users["displayname"].str.contains(search, case=False, na=False) |
+            df_users["mail"].str.contains(search, case=False, na=False)
+        ]
+    else:
+        df_filtered = df_users.copy()
 
-st.dataframe(df_users)
+    st.dataframe(df_filtered)
 
-# Voir les rôles d'un utilisateur sélectionné
-if not df_users.empty:
-    selected_user = st.selectbox(
-        "Sélectionnez un utilisateur pour voir ses rôles", df_users["userprincipalname"]
-    )
-    if selected_user:
-        roles = get_user_roles(token, selected_user)
-        if roles:
-            roles_df = pd.DataFrame(roles)
-            st.dataframe(roles_df)
-        else:
-            st.info("Cet utilisateur n'a aucun rôle attribué")
-else:
-    st.info("Aucun utilisateur trouvé avec ce filtre")
+    # Voir les rôles d'un utilisateur sélectionné
+    if not df_filtered.empty:
+        selected_user = st.selectbox(
+            "Sélectionnez un utilisateur pour voir ses rôles", df_filtered["userprincipalname"]
+        )
+        if selected_user:
+            roles = get_user_roles(token, selected_user)
+            if roles:
+                roles_df = pd.DataFrame(roles)
+                st.dataframe(roles_df)
+            else:
+                st.info("Cet utilisateur n'a aucun rôle attribué")
+    else:
+        st.info("Aucun utilisateur trouvé avec ce filtre")
