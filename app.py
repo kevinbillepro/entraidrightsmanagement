@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import requests
 from msal import ConfidentialClientApplication
-import plotly.express as px
 
 # -------------------
 # Config Azure AD
@@ -57,7 +56,7 @@ if not token:
 search = st.text_input("Filtrer par nom ou email")
 search_clicked = st.button("Recherche")
 
-# On ne charge et ne filtre les utilisateurs qu'après la première recherche
+# On ne charge les utilisateurs qu’après la recherche
 if search_clicked:
     with st.spinner("Chargement des utilisateurs..."):
         users = get_users(token)
@@ -76,33 +75,24 @@ if search_clicked:
         else:
             df_filtered = df_users.copy()
 
-        st.dataframe(df_filtered)
-
-        # -------------------
-        # Heatmap des rôles
-        # -------------------
-        if not df_filtered.empty:
-            roles_data = []
-            for user_id, display_name in zip(df_filtered["userprincipalname"], df_filtered["displayname"]):
-                roles = get_user_roles(token, user_id)
-                for role in roles:
-                    role_name = role.get("appRoleId", role.get("id", "unknown"))
-                    roles_data.append({"user": display_name, "role": role_name})
-
-            if roles_data:
-                df_roles = pd.DataFrame(roles_data)
-                df_pivot = df_roles.assign(value=1).pivot_table(
-                    index="user", columns="role", values="value", fill_value=0
-                )
-                fig = px.imshow(
-                    df_pivot,
-                    labels=dict(x="Rôle", y="Utilisateur", color="Présence"),
-                    color_continuous_scale="Blues"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Aucun rôle trouvé pour les utilisateurs filtrés")
-        else:
+        if df_filtered.empty:
             st.info("Aucun utilisateur trouvé avec ce filtre")
+        else:
+            st.subheader("Résultats de la recherche")
+            st.dataframe(df_filtered[["displayname", "mail", "userprincipalname"]])
+
+            # Sélection de l'utilisateur pour afficher ses rôles
+            selected_user = st.selectbox(
+                "Sélectionnez un utilisateur pour voir ses rôles",
+                df_filtered["userprincipalname"]
+            )
+            if selected_user:
+                roles = get_user_roles(token, selected_user)
+                if roles:
+                    roles_df = pd.DataFrame(roles)
+                    st.subheader(f"Rôles de {selected_user}")
+                    st.dataframe(roles_df)
+                else:
+                    st.info(f"{selected_user} n'a aucun rôle attribué")
 else:
     st.info("Entrez un nom ou email et cliquez sur 'Recherche' pour charger les utilisateurs")
