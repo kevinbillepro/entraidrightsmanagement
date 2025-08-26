@@ -70,7 +70,7 @@ if search_clicked:
             if col not in df_users.columns:
                 df_users[col] = ""
 
-        # Filtrage sur displayName, mail et userPrincipalName
+        # Filtrage
         if search:
             df_filtered = df_users[
                 df_users["displayname"].str.contains(search, case=False, na=False) |
@@ -85,8 +85,9 @@ if search_clicked:
         else:
             st.subheader("Résultats de la recherche")
 
-            # Tableau avec bouton "Voir les rôles" pour chaque utilisateur
-            for idx, row in df_filtered.iterrows():
+            # Ajouter une colonne temporaire pour les boutons
+            df_filtered_display = df_filtered[["displayname", "mail", "userprincipalname"]].copy()
+            for idx, row in df_filtered_display.iterrows():
                 cols = st.columns([4, 4, 3, 2])
                 cols[0].write(row["displayname"])
                 cols[1].write(row["mail"])
