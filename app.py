@@ -52,6 +52,7 @@ if not token:
     st.error("Impossible d'obtenir un token Azure AD")
     st.stop()
 
+# Recherche
 search = st.text_input("Filtrer par nom, email ou UPN")
 search_clicked = st.button("Recherche")
 
@@ -82,19 +83,14 @@ if search_clicked:
             st.info("Aucun utilisateur trouvé avec ce filtre")
         else:
             st.subheader("Résultats de la recherche")
+            st.dataframe(df_filtered[["displayname", "mail", "userprincipalname"]])
 
-            # Ajouter une colonne bouton
-            df_display = df_filtered[["displayname", "mail", "userprincipalname"]].copy()
-            df_display["Voir les rôles"] = ""  # colonne pour boutons
-
-            # Affichage interactif
-            for idx, row in df_display.iterrows():
-                cols = st.columns([4, 4, 3, 2])
-                cols[0].write(row["displayname"])
-                cols[1].write(row["mail"])
-                cols[2].write(row["userprincipalname"])
-                if cols[3].button("Voir les rôles", key=row["userprincipalname"]):
-                    st.session_state.selected_user = row["userprincipalname"]
+            # Sélection de l'utilisateur pour afficher ses rôles
+            selected_user = st.selectbox(
+                "Sélectionnez un utilisateur pour voir ses rôles",
+                df_filtered["userprincipalname"]
+            )
+            st.session_state.selected_user = selected_user
 
 # Affichage des rôles
 if st.session_state.selected_user:
