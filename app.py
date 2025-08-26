@@ -52,15 +52,13 @@ if not token:
     st.error("Impossible d'obtenir un token Azure AD")
     st.stop()
 
-# Input et bouton de recherche
 search = st.text_input("Filtrer par nom, email ou UPN")
 search_clicked = st.button("Recherche")
 
-# Initialiser la session_state pour l'utilisateur sélectionné
+# Initialiser la session_state
 if "selected_user" not in st.session_state:
     st.session_state.selected_user = None
 
-# --- Recherche ---
 if search_clicked:
     with st.spinner("Chargement des utilisateurs..."):
         users = get_users(token)
@@ -70,7 +68,7 @@ if search_clicked:
             if col not in df_users.columns:
                 df_users[col] = ""
 
-        # Filtrage
+        # Filtrage sur displayName, mail et userPrincipalName
         if search:
             df_filtered = df_users[
                 df_users["displayname"].str.contains(search, case=False, na=False) |
@@ -85,9 +83,12 @@ if search_clicked:
         else:
             st.subheader("Résultats de la recherche")
 
-            # Ajouter une colonne temporaire pour les boutons
-            df_filtered_display = df_filtered[["displayname", "mail", "userprincipalname"]].copy()
-            for idx, row in df_filtered_display.iterrows():
+            # Ajouter une colonne bouton
+            df_display = df_filtered[["displayname", "mail", "userprincipalname"]].copy()
+            df_display["Voir les rôles"] = ""  # colonne pour boutons
+
+            # Affichage interactif
+            for idx, row in df_display.iterrows():
                 cols = st.columns([4, 4, 3, 2])
                 cols[0].write(row["displayname"])
                 cols[1].write(row["mail"])
@@ -95,7 +96,7 @@ if search_clicked:
                 if cols[3].button("Voir les rôles", key=row["userprincipalname"]):
                     st.session_state.selected_user = row["userprincipalname"]
 
-# --- Affichage des rôles ---
+# Affichage des rôles
 if st.session_state.selected_user:
     roles = get_user_roles(token, st.session_state.selected_user)
     if roles:
